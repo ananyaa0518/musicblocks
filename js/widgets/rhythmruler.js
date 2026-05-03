@@ -867,7 +867,7 @@ class RhythmRuler {
             for (let j = 0; j < this.Rulers[i][0].length; j++) {
                 const noteValue = this.Rulers[i][0][j];
                 const rulerSubCell = rulerRow.insertCell(-1);
-                rulerSubCell.textContent = calcNoteValueToDisplay(noteValue, 1);
+                this.__setNoteValueDisplay(rulerSubCell, noteValue, 1);
                 rulerSubCell.style.height = RhythmRuler.RULERHEIGHT + "px";
                 rulerSubCell.style.minHeight = rulerSubCell.style.height;
                 rulerSubCell.style.maxHeight = rulerSubCell.style.height;
@@ -989,6 +989,34 @@ class RhythmRuler {
     }
 
     /**
+     * Renders the note value display returned by calcNoteValueToDisplay without
+     * inserting raw HTML into the widget.
+     * @private
+     * @param {HTMLTableCellElement} cell - The rhythm cell to update.
+     * @param {number} numerator - The numerator passed to calcNoteValueToDisplay.
+     * @param {number} denominator - The denominator passed to calcNoteValueToDisplay.
+     * @param {string} [suffix] - Optional text appended after the note value.
+     * @returns {void}
+     */
+    __setNoteValueDisplay(cell, numerator, denominator, suffix) {
+        const noteValueToDisplay = calcNoteValueToDisplay(numerator, denominator);
+        const parts = noteValueToDisplay.split("<br>");
+
+        cell.textContent = "";
+        for (let i = 0; i < parts.length; i++) {
+            let part = parts[i];
+            if (part === "&mdash;") part = "\u2014";
+
+            cell.appendChild(document.createTextNode(part));
+            if (i < parts.length - 1) cell.appendChild(document.createElement("br"));
+        }
+
+        if (suffix !== undefined) {
+            cell.appendChild(document.createTextNode(" " + suffix));
+        }
+    }
+
+    /**
      * Scales the width of the note cells based on the window size.
      * @private
      * @returns {void}
@@ -1075,7 +1103,7 @@ class RhythmRuler {
      * @returns {void}
      */
     _dissectRuler(event, ruler) {
-        const cell = event.target;
+        const cell = event.currentTarget || event.target;
         if (cell === null) {
             return;
         }
@@ -1103,7 +1131,7 @@ class RhythmRuler {
             // Tap a rhythm by clicking in a cell.
             if (this._tapCell === null) {
                 const noteValues = this.Rulers[this._rulerSelected][0];
-                this._tapCell = event.target;
+                this._tapCell = cell;
                 if (noteValues[this._tapCell.cellIndex] < 0) {
                     // Don't allow tapping in rests.
                     this._tapCell = null;
@@ -1223,7 +1251,7 @@ class RhythmRuler {
      * @returns {void}
      */
     __endTapping(event) {
-        const cell = event.target;
+        const cell = event.currentTarget || event.target;
         if (cell.parentNode === null) {
             // console.debug("Null parent node in endTapping");
             return;
@@ -1335,7 +1363,7 @@ class RhythmRuler {
      */
     __addCellEventHandlers(cell, cellWidth, noteValue) {
         const __mouseOverHandler = event => {
-            const cell = event.target;
+            const cell = event.currentTarget;
             if (cell === null || cell.parentNode === null) {
                 return;
             }
@@ -1346,20 +1374,20 @@ class RhythmRuler {
             let obj;
             if (noteValue < 0) {
                 obj = rationalToFraction(Math.abs(Math.abs(-1 / noteValue)));
-                cell.textContent = `${calcNoteValueToDisplay(obj[1], obj[0])} ${_("silence")}`;
+                this.__setNoteValueDisplay(cell, obj[1], obj[0], _("silence"));
             } else {
                 obj = rationalToFraction(Math.abs(Math.abs(1 / noteValue)));
-                cell.textContent = calcNoteValueToDisplay(obj[1], obj[0]);
+                this.__setNoteValueDisplay(cell, obj[1], obj[0]);
             }
         };
 
         const __mouseOutHandler = event => {
-            const cell = event.target;
+            const cell = event.currentTarget;
             cell.textContent = "";
         };
 
         const __mouseDownHandler = event => {
-            const cell = event.target;
+            const cell = event.currentTarget;
             this._mouseDownCell = cell;
 
             const d = new Date();
@@ -1391,7 +1419,7 @@ class RhythmRuler {
         const __mouseUpHandler = event => {
             this._clearWidgetTimeout(this._longPressBeep);
             this._longPressBeep = null;
-            const cell = event.target;
+            const cell = event.currentTarget;
             this._mouseUpCell = cell;
             if (this._mouseDownCell !== this._mouseUpCell) {
                 this._tieRuler(event, cell.parentNode.getAttribute("data-row"));
@@ -1418,7 +1446,7 @@ class RhythmRuler {
         const __clickHandler = event => {
             if (event === undefined) return;
             if (!this.__getLongPressStatus()) {
-                const cell = event.target;
+                const cell = event.currentTarget;
                 if (cell !== null && cell.parentNode !== null) {
                     this._dissectRuler(event, cell.parentNode.getAttribute("data-row"));
                 } else {
@@ -1432,7 +1460,7 @@ class RhythmRuler {
         let obj;
         if (cellWidth >= 18 && noteValue > 0) {
             obj = rationalToFraction(Math.abs(1 / noteValue));
-            cell.textContent = calcNoteValueToDisplay(obj[1], obj[0]);
+            this.__setNoteValueDisplay(cell, obj[1], obj[0]);
         } else {
             cell.textContent = "";
 
@@ -1481,7 +1509,7 @@ class RhythmRuler {
              * @returns {void}
              */
             const __mouseOverHandler = event => {
-                const cell = event.target;
+                const cell = event.currentTarget;
                 if (cell === null) {
                     return;
                 }
@@ -1493,10 +1521,10 @@ class RhythmRuler {
                 const noteValue = noteValues[cell.cellIndex];
                 if (noteValue < 0) {
                     obj = rationalToFraction(Math.abs(Math.abs(-1 / noteValue)));
-                    cell.textContent = calcNoteValueToDisplay(obj[1], obj[0]) + " " + _("silence");
+                    this.__setNoteValueDisplay(cell, obj[1], obj[0], _("silence"));
                 } else {
                     obj = rationalToFraction(Math.abs(Math.abs(1 / noteValue)));
-                    cell.textContent = calcNoteValueToDisplay(obj[1], obj[0]);
+                    this.__setNoteValueDisplay(cell, obj[1], obj[0]);
                 }
             };
 
@@ -1506,14 +1534,14 @@ class RhythmRuler {
              * @returns {void}
              */
             const __mouseOutHandler = event => {
-                const cell = event.target;
+                const cell = event.currentTarget;
                 cell.textContent = "";
             };
 
             let obj;
             if (noteValue < 0) {
                 obj = rationalToFraction(Math.abs(1 / noteValue));
-                cell.textContent = calcNoteValueToDisplay(obj[1], obj[0]);
+                this.__setNoteValueDisplay(cell, obj[1], obj[0]);
                 cell.removeEventListener("mouseover", __mouseOverHandler);
                 cell.removeEventListener("mouseout", __mouseOutHandler);
             } else {
@@ -1684,7 +1712,7 @@ class RhythmRuler {
         }
 
         // Does this work if there are more than 10 rulers?
-        const cell = event.target;
+        const cell = event.currentTarget || event.target;
         if (cell !== null && cell.parentNode !== null) {
             this._rulerSelected = cell.parentNode.getAttribute("data-row");
             this.__tie(true);
@@ -1821,7 +1849,7 @@ class RhythmRuler {
             newCell.style.maxHeight = newCell.style.height;
 
             newCell.style.backgroundColor = platformColor.selectorBackground;
-            newCell.textContent = calcNoteValueToDisplay(oldCellNoteValue / inputNum, 1);
+            this.__setNoteValueDisplay(newCell, oldCellNoteValue / inputNum, 1);
 
             noteValues[newCellIndex] = oldCellNoteValue / inputNum;
             noteValues.splice(newCellIndex + 1, inputNum - 1);
@@ -1855,7 +1883,7 @@ class RhythmRuler {
             newCell.style.backgroundColor = platformColor.selectorBackground;
 
             const obj = rationalToFraction(newNoteValue);
-            newCell.textContent = calcNoteValueToDisplay(obj[1], obj[0]);
+            this.__setNoteValueDisplay(newCell, obj[1], obj[0]);
 
             noteValues[newCellIndex] = newNoteValue;
             noteValues.splice(newCellIndex + 1, oldNoteValues.length - 1);
@@ -1892,7 +1920,7 @@ class RhythmRuler {
                     newCell.style.maxHeight = newCell.style.height;
 
                     noteValues.splice(history[0][0] + i, 0, history[i][1]);
-                    newCell.textContent = calcNoteValueToDisplay(history[i][1], 1);
+                    this.__setNoteValueDisplay(newCell, history[i][1], 1);
 
                     this.__addCellEventHandlers(newCell, newCellWidth, history[i][1]);
                 }
